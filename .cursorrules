@@ -1,0 +1,463 @@
+# CursorRules.md
+
+Version: V1.0
+
+Project: Automated Score Input Tools (ASIT)
+
+---
+
+# 1. Purpose
+
+This document defines the development rules that Cursor AI must follow throughout the ASIT project.
+
+The purpose is to ensure:
+
+* Consistent architecture
+* Stable code quality
+* Reusable modules
+* Predictable project structure
+* Long-term maintainability
+
+These rules have higher priority than temporary implementation decisions.
+
+When conflicts occur:
+
+PRD > Cursor Rules > AI Suggestions
+
+---
+
+# 2. General Principles
+
+Cursor must always follow these principles:
+
+1. Read before writing.
+2. Reuse before creating.
+3. Think before modifying.
+4. Never guess business rules.
+5. Never hardcode business data.
+6. Keep modules independent.
+7. Keep code readable.
+8. Prefer simplicity over cleverness.
+
+---
+
+# 3. Project Understanding
+
+Before writing any code, Cursor must understand that ASIT is:
+
+* A desktop application.
+* Windows first.
+* Future cross-platform.
+* Excel-driven.
+* Rule-driven.
+* Offline-first.
+* Business-oriented.
+
+The Scoring Rules are NOT code.
+
+The Excel Rule File defines business behavior.
+
+---
+
+# 4. Development Workflow
+
+Every task must follow:
+
+Step 1
+
+Read PRD.
+
+↓
+
+Step 2
+
+Locate related modules.
+
+↓
+
+Step 3
+
+Search existing implementation.
+
+↓
+
+Step 4
+
+Reuse existing code.
+
+↓
+
+Step 5
+
+Write implementation.
+
+↓
+
+Step 6
+
+Run self-check.
+
+↓
+
+Step 7
+
+Update documentation if necessary.
+
+Cursor must never skip steps.
+
+---
+
+# 5. File Creation Rules
+
+Before creating any file:
+
+Cursor must answer:
+
+* Does similar functionality already exist?
+* Can this file extend an existing module?
+* Can this be solved inside an existing class?
+
+If YES:
+
+Do NOT create a new file.
+
+Examples of forbidden filenames:
+
+utils2.ts
+
+utils-new.ts
+
+helper.ts
+
+common2.ts
+
+temp.ts
+
+test-new.ts
+
+---
+
+# 6. Code Modification Rules
+
+Prefer modifying existing modules.
+
+Do not duplicate logic.
+
+Forbidden:
+
+ScoringEngine2
+
+ScoreCalculator
+
+ExcelParserNew
+
+ValidationV2
+
+Instead:
+
+Improve existing implementation.
+
+---
+
+# 7. Architecture Rules
+
+Cursor must never break architecture boundaries.
+
+UI
+
+↓
+
+Application
+
+↓
+
+Domain
+
+↓
+
+Infrastructure
+
+Forbidden:
+
+UI directly reading Excel.
+
+UI calculating scores.
+
+UI modifying configuration.
+
+Infrastructure calling UI.
+
+Circular dependencies.
+
+---
+
+# 8. Business Logic Rules
+
+Business logic belongs ONLY inside Domain.
+
+Forbidden locations:
+
+React Component
+
+Electron Window
+
+Dialog
+
+Toolbar
+
+Context Menu
+
+Every calculation must go through:
+
+Scoring Engine.
+
+---
+
+# 9. Excel Rules
+
+All Excel operations belong only to:
+
+Excel Parser
+
+Export Engine
+
+Forbidden:
+
+xlsx.read()
+
+inside UI.
+
+Direct worksheet manipulation outside infrastructure.
+
+---
+
+# 10. Rule File Rules
+
+Never hardcode:
+
+Score
+
+Distance
+
+Time
+
+Grade
+
+Weight
+
+Everything comes from:
+
+Rule Manager.
+
+---
+
+# 11. TypeScript Rules
+
+Forbidden:
+
+* any
+* unknown abuse
+* implicit any
+* magic numbers
+* magic strings
+
+Required:
+
+Strict typing.
+
+Interfaces.
+
+Enums where appropriate.
+
+Readonly where possible.
+
+---
+
+# 12. Naming Rules
+
+Classes
+
+PascalCase
+
+Interfaces
+
+IPascalCase (or PascalCase, depending on project convention)
+
+Functions
+
+camelCase
+
+Constants
+
+UPPER_SNAKE_CASE
+
+Files
+
+kebab-case
+
+Folders
+
+lowercase
+
+---
+
+# 13. Error Handling Rules
+
+Never ignore exceptions.
+
+Forbidden:
+
+catch {}
+
+Required:
+
+* Catch
+* Log
+* Return typed error
+* Show user-friendly message
+
+---
+
+# 14. Logging Rules
+
+Never use console.log() as production logging.
+
+Use LogManager only.
+
+Every error must have:
+
+* Timestamp
+* Module
+* Error Code
+* Description
+
+---
+
+# 15. Performance Rules
+
+Avoid:
+
+Repeated Excel parsing.
+
+Repeated Rule loading.
+
+Repeated object creation.
+
+Prefer:
+
+Caching.
+
+Lazy loading.
+
+Object reuse.
+
+---
+
+# 16. Refactoring Rules
+
+Refactoring must NOT change behavior.
+
+Required:
+
+* Same input
+* Same output
+* Same business result
+
+Run tests before completion.
+
+---
+
+# 17. Testing Rules
+
+Every business feature requires:
+
+* Unit tests
+* Boundary tests
+* Exception tests
+
+Scoring Engine must maintain 100% test coverage.
+
+---
+
+# 18. Git Rules
+
+Commit format:
+
+feat:
+
+fix:
+
+docs:
+
+refactor:
+
+test:
+
+style:
+
+No unrelated changes in a single commit.
+
+---
+
+# 19. Documentation Rules
+
+Whenever business behavior changes:
+
+Update:
+
+* PRD
+* Architecture
+* Test Cases
+
+Code without documentation updates is considered incomplete.
+
+---
+
+# 20. AI Self-Checklist
+
+Before finishing any task, Cursor must verify:
+
+□ No duplicated code
+
+□ No architecture violation
+
+□ No hardcoded business data
+
+□ Reused existing modules
+
+□ Passed TypeScript checks
+
+□ Passed lint checks
+
+□ Tests updated
+
+□ Documentation updated
+
+□ PRD still satisfied
+
+Only after every item is satisfied may the task be considered complete.
+
+---
+
+# 21. Absolute Prohibitions
+
+Cursor must NEVER:
+
+* Hardcode score tables.
+* Hardcode Excel headers.
+* Modify scoring algorithms without PRD updates.
+* Bypass validation.
+* Bypass audit.
+* Modify original Excel files.
+* Break architecture.
+* Duplicate business logic.
+* Introduce circular dependencies.
+* Guess undefined business rules.
+
+When requirements are unclear:
+
+STOP.
+
+Ask for clarification.
+
+Never assume.

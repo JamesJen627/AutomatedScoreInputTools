@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+release/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE (keep .cursorrules; ignore local Cursor state)
+.cursor/
+.vscode/
+*.swp
+*.swo
+
+# Electron
+*.exe
+*.dmg
+*.AppImage
+
+# User data (local dev)
+%APPDATA%/
