@@ -9,7 +9,14 @@ import {
   type ReactNode
 } from 'react'
 import { validateGridRows } from '@app/dataset-service'
-import type { CalculationReport, ScoreRulePluginInfo, Student, ValidationIssue } from '@shared/models'
+import { runPreflightCheck } from '@app/preflight-service'
+import type {
+  AuditReport,
+  CalculationReport,
+  ScoreRulePluginInfo,
+  Student,
+  ValidationIssue
+} from '@shared/models'
 import { ValidationLevel } from '@shared/models'
 import type {
   ActiveScoreRuleInfo,
@@ -17,8 +24,10 @@ import type {
   AppPaths,
   CellFocusTarget,
   ExcelParseResult,
+  ExportResultPayload,
   ImportSession
 } from '@shared/types'
+import type { PreflightReport } from '@shared/types/preflight'
 import {
   DEFAULT_STATUS_BAR,
   WorkflowState,
@@ -50,9 +59,15 @@ export interface AppContextValue {
   readonly scoreRulePlugins: readonly ScoreRulePluginInfo[]
   readonly activeScoreRule: ActiveScoreRuleInfo | null
   readonly calculationReport: CalculationReport | null
+  readonly auditReport: AuditReport | null
   readonly auditPassed: boolean | null
   readonly isCalculating: boolean
   readonly calculationError: string | null
+  readonly isExporting: boolean
+  readonly exportError: string | null
+  readonly lastExportFileName: string | null
+  readonly showCalculationConfirm: boolean
+  readonly preflightReport: PreflightReport | null
   readonly selectedTraceRowIndex: number | null
   setWorkflowState: (state: WorkflowState) => void
   setCurrentFileName: (name: string) => void
@@ -69,7 +84,10 @@ export interface AppContextValue {
   redo: () => void
   refreshScoreRules: () => Promise<void>
   activateScoreRule: (pluginPath: string) => Promise<void>
-  runCalculation: () => Promise<void>
+  requestCalculation: () => void
+  cancelCalculationConfirm: () => void
+  confirmAndRunCalculation: () => Promise<void>
+  exportExcel: () => Promise<void>
   setSelectedTraceRowIndex: (rowIndex: number | null) => void
 }
 
@@ -116,9 +134,15 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
   const [scoreRulePlugins, setScoreRulePlugins] = useState<readonly ScoreRulePluginInfo[]>([])
   const [activeScoreRule, setActiveScoreRule] = useState<ActiveScoreRuleInfo | null>(null)
   const [calculationReport, setCalculationReport] = useState<CalculationReport | null>(null)
+  const [auditReport, setAuditReport] = useState<AuditReport | null>(null)
   const [auditPassed, setAuditPassed] = useState<boolean | null>(null)
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationError, setCalculationError] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [lastExportFileName, setLastExportFileName] = useState<string | null>(null)
+  const [showCalculationConfirm, setShowCalculationConfirm] = useState(false)
+  const [preflightReport, setPreflightReport] = useState<PreflightReport | null>(null)
   const [selectedTraceRowIndex, setSelectedTraceRowIndex] = useState<number | null>(null)
 
   const historyRef = useRef<string[][][]>([])
@@ -152,6 +176,18 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
     }
 
     void initialize()
+  }, [])
+
+  const clearCalculationResults = useCallback((): void => {
+    setCalculationReport(null)
+    setAuditReport(null)
+    setAuditPassed(null)
+    setExportError(null)
+    setStatusBarState((prev) => ({
+      ...prev,
+      calculationStatus: '未开始',
+      auditStatus: '未开始'
+    }))
   }, [])
 
   const setStatusBar = useCallback((patch: Partial<StatusBarState>): void => {
@@ -246,8 +282,10 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
       if (options?.recordHistory) {
         pushHistorySnapshot(rows)
       }
+
+      clearCalculationResults()
     },
-    [applyValidation, pushHistorySnapshot]
+    [applyValidation, pushHistorySnapshot, clearCalculationResults]
   )
 
   const importExcel = useCallback(async (): Promise<ExcelParseResult | null> => {
@@ -360,6 +398,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
       const rule = await window.asit.activateScoreRule(pluginPath)
       setActiveScoreRule(rule)
       setCalculationReport(null)
+      setAuditReport(null)
       setAuditPassed(null)
       setStatusBar({
         scoreRuleName: `${rule.manifest.name} v${rule.manifest.version}`,
@@ -371,7 +410,31 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
     [refreshScoreRules, setStatusBar]
   )
 
-  const runCalculation = useCallback(async (): Promise<void> => {
+  const requestCalculation = useCallback((): void => {
+    const report = runPreflightCheck({
+      studentCount: students.length,
+      validationIssues,
+      activeScoreRule,
+      isDirty
+    })
+    setPreflightReport(report)
+    if (!report.canCalculate) {
+      setCalculationError('Pre-flight 检查未通过，无法开始计算')
+      return
+    }
+    setCalculationError(null)
+    setShowCalculationConfirm(true)
+  }, [activeScoreRule, isDirty, students.length, validationIssues])
+
+  const cancelCalculationConfirm = useCallback((): void => {
+    setShowCalculationConfirm(false)
+    setPreflightReport(null)
+  }, [])
+
+  const confirmAndRunCalculation = useCallback(async (): Promise<void> => {
+    setShowCalculationConfirm(false)
+    setPreflightReport(null)
+
     if (students.length === 0) {
       setCalculationError('没有可计算的学生数据')
       return
@@ -382,14 +445,15 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
     setWorkflowState(WorkflowState.Calculating)
 
     try {
-      const { report, auditPassed: passed } = await window.asit.runCalculation(students)
-      setCalculationReport(report)
-      setAuditPassed(passed)
+      const result = await window.asit.runCalculation(students)
+      setCalculationReport(result.report)
+      setAuditReport(result.auditReport)
+      setAuditPassed(result.auditPassed)
       setStatusBar({
         calculationStatus: '已完成',
-        auditStatus: passed ? '审核通过' : '审核失败'
+        auditStatus: result.auditPassed ? '审核通过' : '审核失败'
       })
-      setWorkflowState(passed ? WorkflowState.ReadyToExport : WorkflowState.AuditComplete)
+      setWorkflowState(result.auditPassed ? WorkflowState.ReadyToExport : WorkflowState.AuditComplete)
     } catch (error) {
       const message = error instanceof Error ? error.message : '计算失败'
       setCalculationError(message)
@@ -398,6 +462,42 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
       setIsCalculating(false)
     }
   }, [setStatusBar, students])
+
+  const exportExcel = useCallback(async (): Promise<void> => {
+    if (!gridRows || !importSession || !calculationReport) {
+      setExportError('没有可导出的计算结果')
+      return
+    }
+
+    if (auditPassed !== true) {
+      setExportError('审核未通过，禁止导出')
+      return
+    }
+
+    setIsExporting(true)
+    setExportError(null)
+
+    try {
+      const result: ExportResultPayload | null = await window.asit.exportExcel({
+        gridRows,
+        calculationReport,
+        sourceFileName: importSession.fileName,
+        sourceFilePath: importSession.filePath,
+        auditPassed: true
+      })
+
+      if (result) {
+        setLastExportFileName(result.fileName)
+        setCurrentFileName(result.fileName)
+        setWorkflowState(WorkflowState.ReadyToExport)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '导出失败'
+      setExportError(message)
+    } finally {
+      setIsExporting(false)
+    }
+  }, [auditPassed, calculationReport, gridRows, importSession])
 
   const canUndo = historyIndexRef.current > 0
   const canRedo = historyIndexRef.current < historyRef.current.length - 1 && historyRef.current.length > 0
@@ -426,9 +526,15 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
       scoreRulePlugins,
       activeScoreRule,
       calculationReport,
+      auditReport,
       auditPassed,
       isCalculating,
       calculationError,
+      isExporting,
+      exportError,
+      lastExportFileName,
+      showCalculationConfirm,
+      preflightReport,
       selectedTraceRowIndex,
       setWorkflowState,
       setCurrentFileName,
@@ -445,7 +551,10 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
       redo,
       refreshScoreRules,
       activateScoreRule,
-      runCalculation,
+      requestCalculation,
+      cancelCalculationConfirm,
+      confirmAndRunCalculation,
+      exportExcel,
       setSelectedTraceRowIndex
     }),
     [
@@ -471,9 +580,15 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
       scoreRulePlugins,
       activeScoreRule,
       calculationReport,
+      auditReport,
       auditPassed,
       isCalculating,
       calculationError,
+      isExporting,
+      exportError,
+      lastExportFileName,
+      showCalculationConfirm,
+      preflightReport,
       selectedTraceRowIndex,
       historyVersion,
       setStatusBar,
@@ -489,7 +604,10 @@ export function AppProvider({ children }: { children: ReactNode }): React.ReactE
       redo,
       refreshScoreRules,
       activateScoreRule,
-      runCalculation
+      requestCalculation,
+      cancelCalculationConfirm,
+      confirmAndRunCalculation,
+      exportExcel
     ]
   )
 

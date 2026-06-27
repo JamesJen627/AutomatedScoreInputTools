@@ -6,6 +6,13 @@ export {
   getActiveScoreRule,
   getBundledScoreRulesPath,
   initializeScoreRules,
-  listScoreRulePlugins,
-  runCalculation
+  listScoreRulePlugins
 } from './score-rule-service'
+export {
+  exportExcelWithDialog,
+  runCalculation,
+  type CalculationRunOutput,
+  type ExportExcelInput
+} from './calculation-service'
+export { runPreflightCheck } from './preflight-service'
+export type { PreflightCheckItem, PreflightInput, PreflightReport } from '@shared/types/preflight'

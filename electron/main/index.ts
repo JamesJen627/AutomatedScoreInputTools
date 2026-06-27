@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import {
   activateScoreRule,
+  exportExcelWithDialog,
   getActiveScoreRule,
   importExcelFile,
   initializeScoreRules,
@@ -108,6 +109,10 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IpcChannel.CALCULATION_RUN, (_event, students: import('@shared/models').Student[]) => {
     return runCalculation(students)
+  })
+
+  ipcMain.handle(IpcChannel.EXPORT_EXCEL, (_event, request: import('@shared/types').ExportExcelRequest) => {
+    return exportExcelWithDialog(request)
   })
 }
 

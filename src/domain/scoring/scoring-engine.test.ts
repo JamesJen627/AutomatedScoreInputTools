@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { Gender } from '@shared/models'
 import type { ScoreItemRule, ScoreRuleObject, Student } from '@shared/models'
-import { ScoringEngine, compareCalculationReports } from '@domain/scoring/scoring-engine'
+import { ScoringEngine } from '@domain/scoring/scoring-engine'
+import { auditCalculationReports } from '@domain/audit/audit-engine'
 
 function buildRule(): ScoreRuleObject {
   const femaleJump: ScoreItemRule = {
@@ -126,6 +127,6 @@ describe('ScoringEngine', () => {
     const students = [buildStudent()]
     const first = engine.calculateBatch(students, rule)
     const second = engine.calculateBatch(students, rule)
-    expect(compareCalculationReports(first, second)).toBe(true)
+    expect(auditCalculationReports(first, second).auditPassed).toBe(true)
   })
 })

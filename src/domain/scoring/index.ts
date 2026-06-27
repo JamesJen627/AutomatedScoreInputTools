@@ -7,4 +7,4 @@ export {
   SCORE_ITEM_LABELS,
   type LookupResult
 } from './lookup-strategy'
-export { ScoringEngine, compareCalculationReports, scoringEngine } from './scoring-engine'
+export { ScoringEngine, scoringEngine } from './scoring-engine'

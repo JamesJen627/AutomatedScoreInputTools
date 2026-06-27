@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { CalculationConfirmDialog } from '@renderer/components/calculation-confirm-dialog'
 import { useAppContext } from '@renderer/context/app-context'
 import { ValidationLevel } from '@shared/models'
 import { AppRoute } from '@shared/types/app-state'
@@ -9,17 +10,27 @@ export function CalculationPage(): React.ReactElement {
     validationIssues,
     activeScoreRule,
     calculationReport,
+    auditReport,
     auditPassed,
     isCalculating,
     calculationError,
+    isExporting,
+    exportError,
+    lastExportFileName,
+    showCalculationConfirm,
+    preflightReport,
     statusBar,
     selectedTraceRowIndex,
-    runCalculation,
+    requestCalculation,
+    cancelCalculationConfirm,
+    confirmAndRunCalculation,
+    exportExcel,
     setSelectedTraceRowIndex
   } = useAppContext()
 
   const errorCount = validationIssues.filter((i) => i.level === ValidationLevel.Error).length
   const canCalculate = students.length > 0 && errorCount === 0 && activeScoreRule !== null
+  const canExport = auditPassed === true && calculationReport !== null && calculationReport.failedCount === 0
 
   const selectedResult =
     calculationReport?.results.find((result) => result.rowIndex === selectedTraceRowIndex) ??
@@ -27,6 +38,14 @@ export function CalculationPage(): React.ReactElement {
 
   return (
     <div className="page calculation-page">
+      {showCalculationConfirm && preflightReport && (
+        <CalculationConfirmDialog
+          report={preflightReport}
+          onConfirm={() => void confirmAndRunCalculation()}
+          onCancel={cancelCalculationConfirm}
+        />
+      )}
+
       <header className="page__header calculation-page__header">
         <div>
           <h2>成绩计算</h2>
@@ -39,9 +58,17 @@ export function CalculationPage(): React.ReactElement {
             type="button"
             className="btn btn--primary"
             disabled={!canCalculate || isCalculating}
-            onClick={() => void runCalculation()}
+            onClick={requestCalculation}
           >
             {isCalculating ? '计算中…' : '开始计算'}
+          </button>
+          <button
+            type="button"
+            className="btn btn--primary"
+            disabled={!canExport || isExporting}
+            onClick={() => void exportExcel()}
+          >
+            {isExporting ? '导出中…' : '导出 Excel'}
           </button>
           {!activeScoreRule && (
             <Link to={AppRoute.SCORE_RULES} className="btn btn--ghost-dark">
@@ -71,6 +98,19 @@ export function CalculationPage(): React.ReactElement {
         </div>
       )}
 
+      {exportError && (
+        <div className="message message--error panel">
+          <strong>导出失败</strong>
+          <p>{exportError}</p>
+        </div>
+      )}
+
+      {lastExportFileName && (
+        <div className="message message--success panel">
+          已成功导出：<strong>{lastExportFileName}</strong>
+        </div>
+      )}
+
       {calculationReport && (
         <section className="panel calc-summary">
           <h3>计算报告</h3>
@@ -94,6 +134,21 @@ export function CalculationPage(): React.ReactElement {
               </dd>
             </div>
           </dl>
+        </section>
+      )}
+
+      {auditReport && !auditReport.auditPassed && auditReport.differences.length > 0 && (
+        <section className="panel audit-panel">
+          <h3>审核差异（{auditReport.differenceCount}）</h3>
+          <ul className="audit-list">
+            {auditReport.differences.map((diff, index) => (
+              <li key={`${diff.rowIndex}-${diff.field}-${index}`} className="audit-item">
+                <strong>第 {diff.rowIndex} 行 · {diff.name}</strong>
+                <p>{diff.reason}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="audit-blocked">审核未通过，已禁止导出。</p>
         </section>
       )}
 

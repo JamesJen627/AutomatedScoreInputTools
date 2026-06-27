@@ -6,6 +6,8 @@ import {
   type AppPaths,
   type AsitApi,
   type CalculationRunResult,
+  type ExportExcelRequest,
+  type ExportResultPayload,
   type ExcelParseResult
 } from '@shared/types'
 import type { ScoreRulePluginInfo, Student } from '@shared/models'
@@ -25,7 +27,9 @@ const asitApi: AsitApi = {
   getActiveScoreRule: (): Promise<ActiveScoreRuleInfo | null> =>
     ipcRenderer.invoke(IpcChannel.RULES_GET_ACTIVE),
   runCalculation: (students: readonly Student[]): Promise<CalculationRunResult> =>
-    ipcRenderer.invoke(IpcChannel.CALCULATION_RUN, students)
+    ipcRenderer.invoke(IpcChannel.CALCULATION_RUN, students),
+  exportExcel: (request: ExportExcelRequest): Promise<ExportResultPayload | null> =>
+    ipcRenderer.invoke(IpcChannel.EXPORT_EXCEL, request)
 }
 
 contextBridge.exposeInMainWorld('asit', asitApi)

@@ -15,6 +15,11 @@ export type {
   ScoreRulePluginInfo
 } from './score-rule'
 export type {
+  AuditDifference,
+  AuditReport,
+  ExportRecord
+} from './audit-result'
+export type {
   CalculationReport,
   CalculationRequest,
   ItemCalculationTrace,

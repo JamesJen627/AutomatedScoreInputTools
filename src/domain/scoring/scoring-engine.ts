@@ -146,30 +146,3 @@ export class ScoringEngine {
 }
 
 export const scoringEngine = new ScoringEngine()
-
-/** 二次计算审核 — PRD §3.16 */
-export function compareCalculationReports(
-  first: CalculationReport,
-  second: CalculationReport
-): boolean {
-  if (first.results.length !== second.results.length) {
-    return false
-  }
-
-  for (let i = 0; i < first.results.length; i += 1) {
-    const a = first.results[i]
-    const b = second.results[i]
-    if (
-      a.totalScore !== b.totalScore ||
-      a.sitReachScore !== b.sitReachScore ||
-      a.run800Score !== b.run800Score ||
-      a.run50Score !== b.run50Score ||
-      a.standingJumpScore !== b.standingJumpScore ||
-      a.sitUpScore !== b.sitUpScore
-    ) {
-      return false
-    }
-  }
-
-  return true
-}

@@ -1,7 +1,9 @@
 /** IPC channel names — single source of truth for main/preload/renderer. */
 
 import type { ExcelParseResult } from './import'
+import type { ExportResultPayload } from './export'
 import type {
+  AuditReport,
   CalculationReport,
   ScoreRuleManifest,
   ScoreRulePluginInfo,
@@ -18,7 +20,8 @@ export const IpcChannel = {
   RULES_LIST: 'rules:list',
   RULES_ACTIVATE: 'rules:activate',
   RULES_GET_ACTIVE: 'rules:get-active',
-  CALCULATION_RUN: 'calculation:run'
+  CALCULATION_RUN: 'calculation:run',
+  EXPORT_EXCEL: 'export:excel'
 } as const
 
 export type IpcChannelName = (typeof IpcChannel)[keyof typeof IpcChannel]
@@ -63,6 +66,15 @@ export interface ActiveScoreRuleInfo {
 
 export interface CalculationRunResult {
   readonly report: CalculationReport
+  readonly auditReport: AuditReport
+  readonly auditPassed: boolean
+}
+
+export interface ExportExcelRequest {
+  readonly gridRows: readonly (readonly string[])[]
+  readonly calculationReport: CalculationReport
+  readonly sourceFileName: string
+  readonly sourceFilePath: string
   readonly auditPassed: boolean
 }
 
@@ -76,6 +88,7 @@ export interface AsitApi {
   activateScoreRule: (pluginPath: string) => Promise<ActiveScoreRuleInfo>
   getActiveScoreRule: () => Promise<ActiveScoreRuleInfo | null>
   runCalculation: (students: readonly Student[]) => Promise<CalculationRunResult>
+  exportExcel: (request: ExportExcelRequest) => Promise<ExportResultPayload | null>
 }
 
 declare global {
@@ -83,5 +96,7 @@ declare global {
     asit: AsitApi
   }
 }
+
+export type { PreflightReport } from './preflight'
 
 export {}
