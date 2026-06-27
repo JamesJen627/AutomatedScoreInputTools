@@ -10,6 +10,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder --win --publish never",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -29,13 +31,54 @@
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.5.0",
     "electron": "^36.3.2",
+    "electron-builder": "^26.0.12",
     "electron-vite": "^3.1.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vitest": "^4.1.9"
   },
+  "build": {
+    "appId": "com.asit.automated-score-input-tools",
+    "productName": "AutomatedScoreInputTools",
+    "copyright": "Copyright © 2026 JamesJen627",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "ScoreRules",
+        "to": "ScoreRules"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "体育成绩自动评分系统"
+    }
+  },
   "allowScripts": {
     "electron@36.9.5": true,
-    "esbuild@0.25.12": true
+    "esbuild@0.25.12": true,
+    "electron-winstaller@5.4.0": true
   }
 }

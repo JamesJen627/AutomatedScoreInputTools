@@ -52,10 +52,35 @@ npm run dev
 ### 构建安装包
 
 ```bash
-npm run build
+npm run dist
 ```
 
-构建产物位于 `out/` 目录。
+Windows 安装包输出到 `release/`，例如 `AutomatedScoreInputTools-Setup-1.0.0.exe`。
+
+仅编译、不打包：
+
+```bash
+npm run build   # 产物在 out/
+npm run pack    # 未打包目录，用于本地快速验证
+```
+
+---
+
+## 发布 Release（GitHub）
+
+推送 `v*` 标签时，GitHub Actions 会自动运行测试、打包并发布 Release。
+
+```bash
+# 1. 同步版本号：package.json 与 src/shared/constants/app-constants.ts
+# 2. 提交并打标签
+git tag v1.0.0
+git push origin main
+git push origin v1.0.0
+```
+
+完成后在 [Releases](https://github.com/JamesJen627/AutomatedScoreInputTools/releases) 下载安装包。
+
+也可本地 `npm run dist` 后，在 GitHub 网页手动上传 `release/*.exe`。
 
 ---
 
@@ -143,7 +168,9 @@ npm run import-rules
 | 命令 | 说明 |
 |------|------|
 | `npm run dev` | 启动 Electron 开发环境 |
-| `npm run build` | 构建应用 |
+| `npm run build` | 编译应用到 `out/` |
+| `npm run pack` | 编译并输出未打包目录（快速验证） |
+| `npm run dist` | 编译并生成 Windows 安装包（`release/`） |
 | `npm run typecheck` | TypeScript 类型检查 |
 | `npm run test` | 运行单元测试与集成测试 |
 | `npm run import-rules` | 从官方评分表生成 `rule.xlsx` |
