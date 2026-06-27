@@ -1,5 +1,6 @@
 import type { Gender } from './gender'
 import type { ScoreItemCodeValue } from '@shared/constants/score-items'
+import type { GradeLevel } from '@shared/constants/grade-level'
 
 export interface ScoreRuleManifest {
   readonly id: string
@@ -18,6 +19,7 @@ export interface ScoreRuleEntry {
 export interface ScoreItemRule {
   readonly itemCode: ScoreItemCodeValue
   readonly gender: Gender
+  readonly gradeLevel: GradeLevel
   readonly entries: readonly ScoreRuleEntry[]
 }
 

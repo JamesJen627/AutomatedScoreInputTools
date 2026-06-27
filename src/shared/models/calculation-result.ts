@@ -25,6 +25,8 @@ export interface StudentCalculationResult {
   readonly standingJumpScore: number
   readonly sitUpScore: number
   readonly totalScore: number
+  /** 该生五项均为满分时可获得的最高总成绩（等级评定基准） */
+  readonly maxPossibleTotalScore: number
   readonly traces: readonly ItemCalculationTrace[]
   readonly success: boolean
   readonly errorMessage?: string

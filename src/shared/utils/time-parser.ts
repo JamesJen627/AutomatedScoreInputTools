@@ -34,3 +34,38 @@ export function formatSecondsToTime(totalSeconds: number): string {
   const seconds = totalSeconds % 60
   return `${minutes}'${seconds.toString().padStart(2, '0')}"`
 }
+
+/** 50m 秒数格式 — 支持 7.56 与计时器常见写法 8"7（8.7 秒） */
+const RUN50_DECIMAL_PATTERN = /^\d+(\.\d+)?$/
+const RUN50_QUOTE_PATTERN = /^(\d+)"(\d+)$/
+
+function normalizeRun50Quotes(value: string): string {
+  return value.trim().replace(/[""″]/g, '"')
+}
+
+export function parseRun50Seconds(value: string): number | null {
+  const trimmed = normalizeRun50Quotes(value)
+  if (trimmed.length === 0) {
+    return null
+  }
+
+  if (RUN50_DECIMAL_PATTERN.test(trimmed)) {
+    const seconds = Number(trimmed)
+    return Number.isNaN(seconds) ? null : seconds
+  }
+
+  const quoteMatch = RUN50_QUOTE_PATTERN.exec(trimmed)
+  if (!quoteMatch) {
+    return null
+  }
+
+  const wholeSeconds = Number.parseInt(quoteMatch[1], 10)
+  const fractionDigits = quoteMatch[2]
+  const fraction = Number.parseInt(fractionDigits, 10) / Math.pow(10, fractionDigits.length)
+
+  if (Number.isNaN(wholeSeconds) || Number.isNaN(fraction)) {
+    return null
+  }
+
+  return wholeSeconds + fraction
+}

@@ -56,6 +56,21 @@ describe('lookupScore', () => {
     const result = lookupScore([], 10, LookupStrategy.HigherIsBetter)
     expect(result.score).toBe(0)
   })
+
+  it('完整档位表可命中 78、76 等中间得分（非仅 90/85/80）', () => {
+    const tiers: ScoreRuleEntry[] = [
+      { performance: 20, score: 100 },
+      { performance: 18, score: 95 },
+      { performance: 16, score: 90 },
+      { performance: 14, score: 85 },
+      { performance: 12, score: 80 },
+      { performance: 11, score: 78 },
+      { performance: 10, score: 76 }
+    ]
+
+    expect(lookupScore(tiers, 11.5, LookupStrategy.HigherIsBetter).score).toBe(78)
+    expect(lookupScore(tiers, 10.5, LookupStrategy.HigherIsBetter).score).toBe(76)
+  })
 })
 
 describe('normalizeWeightFactor', () => {

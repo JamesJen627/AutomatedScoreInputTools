@@ -4,14 +4,17 @@ import type { ScoreItemRule, ScoreRuleObject, Student } from '@shared/models'
 import { ScoringEngine } from '@domain/scoring/scoring-engine'
 import { auditCalculationReports } from '@domain/audit/audit-engine'
 
+const TEST_GRADE = '初一' as const
+
 function buildRule(): ScoreRuleObject {
   const femaleJump: ScoreItemRule = {
     itemCode: 'standingJump',
     gender: Gender.Female,
+    gradeLevel: TEST_GRADE,
     entries: [
-      { performance: 2.3, score: 100 },
-      { performance: 2.2, score: 95 },
-      { performance: 2.1, score: 90 }
+      { performance: 230, score: 100 },
+      { performance: 220, score: 95 },
+      { performance: 210, score: 90 }
     ]
   }
 
@@ -20,6 +23,7 @@ function buildRule(): ScoreRuleObject {
     {
       itemCode: 'run50',
       gender: Gender.Female,
+      gradeLevel: TEST_GRADE,
       entries: [
         { performance: 7.5, score: 100 },
         { performance: 7.6, score: 95 },
@@ -29,6 +33,7 @@ function buildRule(): ScoreRuleObject {
     {
       itemCode: 'run800',
       gender: Gender.Female,
+      gradeLevel: TEST_GRADE,
       entries: [
         { performance: 190, score: 100 },
         { performance: 200, score: 95 },
@@ -38,6 +43,7 @@ function buildRule(): ScoreRuleObject {
     {
       itemCode: 'sitReach',
       gender: Gender.Female,
+      gradeLevel: TEST_GRADE,
       entries: [
         { performance: 20, score: 100 },
         { performance: 18, score: 95 },
@@ -47,6 +53,7 @@ function buildRule(): ScoreRuleObject {
     {
       itemCode: 'sitUp',
       gender: Gender.Female,
+      gradeLevel: TEST_GRADE,
       entries: [
         { performance: 50, score: 100 },
         { performance: 45, score: 95 },
@@ -72,7 +79,7 @@ function buildRule(): ScoreRuleObject {
 function buildStudent(overrides: Partial<Student> = {}): Student {
   return {
     rowIndex: 2,
-    className: '高一(1)班',
+    className: '701',
     examNumber: 'E001',
     studentNumber: 'S001',
     name: '张三',
@@ -112,7 +119,7 @@ describe('ScoringEngine', () => {
     const result = engine.calculateStudent(buildStudent(), rule)
     const jumpTrace = result.traces.find((t) => t.itemCode === 'standingJump')
     expect(jumpTrace?.itemScore).toBe(95)
-    expect(jumpTrace?.matchedPerformance).toBe(2.2)
+    expect(jumpTrace?.matchedPerformance).toBe(220)
     expect(jumpTrace?.contributionScore).toBe(19)
   })
 
@@ -121,6 +128,34 @@ describe('ScoringEngine', () => {
     const result = engine.calculateStudent(maleStudent, rule)
     expect(result.success).toBe(false)
     expect(result.errorMessage).toContain('缺少评分标准')
+  })
+
+  it('某项成绩为空时该项得分为0，其余项目正常计算', () => {
+    const result = engine.calculateStudent(
+      buildStudent({ sitReach: Number.NaN, run800: Number.NaN }),
+      rule
+    )
+    expect(result.success).toBe(true)
+    expect(result.sitReachScore).toBe(0)
+    expect(result.run800Score).toBe(0)
+    expect(result.standingJumpScore).toBe(95)
+    expect(result.maxPossibleTotalScore).toBe(100)
+    expect(result.traces.find((t) => t.itemCode === 'sitReach')?.itemScore).toBe(0)
+    expect(result.traces.find((t) => t.itemCode === 'sitReach')?.contributionScore).toBe(0)
+  })
+
+  it('最高可获总成绩等于各项目占比之和', () => {
+    const result = engine.calculateStudent(
+      buildStudent({
+        sitReachWeight: 10,
+        run800Weight: 20,
+        run50Weight: 20,
+        standingJumpWeight: 10,
+        sitUpWeight: 10
+      }),
+      rule
+    )
+    expect(result.maxPossibleTotalScore).toBe(70)
   })
 
   it('批量计算与二次审核一致', () => {

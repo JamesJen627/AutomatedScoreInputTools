@@ -19,10 +19,16 @@ import {
   lookupScore,
   normalizeWeightFactor,
   roundTotalScore,
-  SCORE_ITEM_LABELS
+  SCORE_ITEM_LABELS,
+  toLookupPerformance
 } from './lookup-strategy'
+import { computeMaxPossibleTotalScore } from './total-score-grade'
+import { resolveGradeLevelFromClassName } from '@shared/constants/grade-level'
 
 function formatPerformance(itemCode: ScoreItemCodeValue, value: number): string {
+  if (Number.isNaN(value)) {
+    return ''
+  }
   if (itemCode === ScoreItemCode.RUN_800) {
     return formatSecondsToTime(value)
   }
@@ -35,9 +41,12 @@ function formatPerformance(itemCode: ScoreItemCodeValue, value: number): string 
 function findItemRule(
   rule: ScoreRuleObject,
   itemCode: ScoreItemCodeValue,
-  gender: Student['gender']
+  gender: Student['gender'],
+  gradeLevel: ReturnType<typeof resolveGradeLevelFromClassName>
 ): ScoreItemRule | undefined {
-  return rule.items.find((item) => item.itemCode === itemCode && item.gender === gender)
+  return rule.items.find(
+    (item) => item.itemCode === itemCode && item.gender === gender && item.gradeLevel === gradeLevel
+  )
 }
 
 function calculateItemTrace(
@@ -45,16 +54,34 @@ function calculateItemTrace(
   rule: ScoreRuleObject,
   itemCode: ScoreItemCodeValue
 ): ItemCalculationTrace | null {
-  const itemRule = findItemRule(rule, itemCode, student.gender)
+  const itemRule = findItemRule(rule, itemCode, student.gender, resolveGradeLevelFromClassName(student.className))
   if (!itemRule) {
     return null
   }
 
   const rawPerformance = getStudentPerformance(student, itemCode)
+  const lookupPerformance = toLookupPerformance(itemCode, rawPerformance)
   const weightPercent = getStudentWeight(student, itemCode)
   const strategy = ITEM_LOOKUP_STRATEGIES[itemCode]
-  const lookup = lookupScore(itemRule.entries, rawPerformance, strategy)
   const weightFactor = normalizeWeightFactor(weightPercent)
+
+  if (Number.isNaN(rawPerformance)) {
+    return {
+      itemCode,
+      itemLabel: SCORE_ITEM_LABELS[itemCode],
+      rawPerformance: Number.NaN,
+      performanceDisplay: '',
+      strategy,
+      matchedPerformance: 0,
+      matchedPerformanceDisplay: '-',
+      itemScore: 0,
+      weightPercent,
+      weightFactor,
+      contributionScore: 0
+    }
+  }
+
+  const lookup = lookupScore(itemRule.entries, lookupPerformance, strategy)
   const contributionScore = roundTotalScore(lookup.score * weightFactor)
 
   return {
@@ -89,9 +116,10 @@ export class ScoringEngine {
           standingJumpScore: 0,
           sitUpScore: 0,
           totalScore: 0,
+          maxPossibleTotalScore: 0,
           traces: [],
           success: false,
-          errorMessage: `缺少评分标准：${SCORE_ITEM_LABELS[itemCode]}（${student.gender}）`
+          errorMessage: `缺少评分标准：${SCORE_ITEM_LABELS[itemCode]}（${student.gender}/${resolveGradeLevelFromClassName(student.className)}）`
         }
       }
       traces.push(trace)
@@ -103,6 +131,7 @@ export class ScoringEngine {
     const standingJumpScore = traces.find((t) => t.itemCode === ScoreItemCode.STANDING_JUMP)?.itemScore ?? 0
     const sitUpScore = traces.find((t) => t.itemCode === ScoreItemCode.SIT_UP)?.itemScore ?? 0
     const totalScore = roundTotalScore(traces.reduce((sum, trace) => sum + trace.contributionScore, 0))
+    const maxPossibleTotalScore = computeMaxPossibleTotalScore(student)
 
     return {
       rowIndex: student.rowIndex,
@@ -114,6 +143,7 @@ export class ScoringEngine {
       standingJumpScore,
       sitUpScore,
       totalScore,
+      maxPossibleTotalScore,
       traces,
       success: true
     }

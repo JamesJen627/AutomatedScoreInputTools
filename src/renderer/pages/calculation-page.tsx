@@ -111,6 +111,23 @@ export function CalculationPage(): React.ReactElement {
         </div>
       )}
 
+      {calculationReport && calculationReport.failedCount > 0 && (
+        <div className="message message--error panel">
+          <strong>部分学生计算失败（{calculationReport.failedCount} 人）</strong>
+          <p>常见原因：班级年级与评分标准不匹配（如 701 班需「初一」规则）。请重新导入并检查成绩，或在「评分标准」页刷新插件。</p>
+          <ul className="audit-list">
+            {calculationReport.results
+              .filter((result) => !result.success)
+              .map((result) => (
+                <li key={result.rowIndex} className="audit-item">
+                  <strong>第 {result.rowIndex} 行 · {result.name}</strong>
+                  <p>{result.errorMessage ?? '未知错误'}</p>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+
       {calculationReport && (
         <section className="panel calc-summary">
           <h3>计算报告</h3>

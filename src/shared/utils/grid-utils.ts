@@ -1,6 +1,26 @@
-import { REQUIRED_INPUT_HEADERS, STUDENT_FIELD_MAPPINGS } from '@shared/constants/field-mapping'
+import {
+  REQUIRED_INPUT_HEADERS,
+  resolveCanonicalHeader,
+  STUDENT_FIELD_MAPPINGS
+} from '@shared/constants/field-mapping'
 import type { Student } from '@shared/models'
-import { formatSecondsToTime } from '@shared/utils'
+import { formatSecondsToTime } from './time-parser'
+
+/** 按 Excel 源表头名称映射一行数据 → 规范输入列 */
+export function mapSourceRowByHeaders(
+  sourceHeaders: readonly string[],
+  row: readonly string[]
+): Map<string, string> {
+  const values = new Map<string, string>()
+  sourceHeaders.forEach((header, index) => {
+    const canonical = resolveCanonicalHeader(header)
+    if (!canonical || !REQUIRED_INPUT_HEADERS.includes(canonical)) {
+      return
+    }
+    values.set(canonical, String(row[index] ?? '').trim())
+  })
+  return values
+}
 
 /** Student → 网格行（字符串，与表头顺序一致） */
 export function studentsToGridRows(students: readonly Student[]): string[][] {
@@ -31,12 +51,18 @@ function studentValueToCell(student: Student, key: keyof Omit<Student, 'rowIndex
   }
 }
 
-/** 从原始 Excel 行构建网格（保留未通过校验行的原始文本） */
+/** 从原始 Excel 行构建网格（按表头名称映射，忽略中间得分列） */
 export function rawExcelRowsToGrid(rows: readonly (readonly string[])[]): string[][] {
   const headerRow = [...REQUIRED_INPUT_HEADERS]
-  const dataRows = rows.slice(1).map((row) =>
-    headerRow.map((_, index) => String(row[index] ?? '').trim())
-  )
+  if (rows.length === 0) {
+    return [headerRow]
+  }
+
+  const sourceHeaders = rows[0].map((header) => String(header ?? '').trim())
+  const dataRows = rows.slice(1).map((row) => {
+    const mapped = mapSourceRowByHeaders(sourceHeaders, row)
+    return headerRow.map((canonical) => mapped.get(canonical) ?? '')
+  })
   return [headerRow, ...dataRows]
 }
 

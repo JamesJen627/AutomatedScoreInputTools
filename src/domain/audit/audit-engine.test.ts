@@ -13,6 +13,7 @@ function buildStudentResult(overrides: Partial<StudentCalculationResult> = {}): 
     standingJumpScore: 92,
     sitUpScore: 85,
     totalScore: 90.0,
+    maxPossibleTotalScore: 100,
     traces: [],
     success: true,
     ...overrides

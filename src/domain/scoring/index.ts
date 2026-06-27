@@ -8,3 +8,8 @@ export {
   type LookupResult
 } from './lookup-strategy'
 export { ScoringEngine, scoringEngine } from './scoring-engine'
+export {
+  classifyTotalScoreGrade,
+  computeMaxPossibleTotalScore,
+  type TotalScoreGrade
+} from './total-score-grade'

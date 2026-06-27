@@ -1,4 +1,4 @@
-import { LookupStrategy, type ScoreItemCodeValue } from '@shared/constants/score-items'
+import { LookupStrategy, ScoreItemCode, type ScoreItemCodeValue } from '@shared/constants/score-items'
 import type { ScoreRuleEntry } from '@shared/models'
 
 export interface LookupResult {
@@ -76,6 +76,17 @@ export function getStudentPerformance(student: import('@shared/models').Student,
     default:
       return Number.NaN
   }
+}
+
+/** 将学生成绩换算为评分表使用的单位（如立定跳远：米 → 厘米） */
+export function toLookupPerformance(itemCode: ScoreItemCodeValue, rawPerformance: number): number {
+  if (Number.isNaN(rawPerformance)) {
+    return Number.NaN
+  }
+  if (itemCode === ScoreItemCode.STANDING_JUMP && Math.abs(rawPerformance) <= 10) {
+    return roundTotalScore(rawPerformance * 100)
+  }
+  return rawPerformance
 }
 
 export function getStudentWeight(student: import('@shared/models').Student, itemCode: ScoreItemCodeValue): number {

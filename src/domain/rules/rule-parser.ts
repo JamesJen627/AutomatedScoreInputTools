@@ -1,15 +1,18 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as XLSX from 'xlsx'
 import {
   ALL_SCORE_ITEM_CODES,
-  RULE_EXCEL_HEADERS,
+  LEGACY_RULE_EXCEL_HEADERS,
   resolveScoreItemCode,
+  RULE_EXCEL_HEADERS,
   type ScoreItemCodeValue
 } from '@shared/constants/score-items'
+import { GRADE_LEVELS, type GradeLevel } from '@shared/constants/grade-level'
 import { Gender, isGender, type RuleValidationIssue, type ScoreRuleManifest, type ScoreRuleObject } from '@shared/models'
 import { parseTimeToSeconds } from '@shared/utils'
 import type { ScoreItemRule, ScoreRuleEntry } from '@shared/models/score-rule'
+import { parseGradeLevel } from '@infrastructure/excel/official-scoring-table-parser'
 
 const MANIFEST_FILE = 'manifest.json'
 const RULE_FILE = 'rule.xlsx'
@@ -51,6 +54,29 @@ function readRuleRows(ruleFilePath: string): string[][] {
   return rows.map((row) => row.map((cell) => String(cell ?? '').trim()))
 }
 
+function readRuleHeaders(ruleFilePath: string): readonly string[] {
+  if (!existsSync(ruleFilePath)) {
+    return []
+  }
+
+  const rows = readRuleRows(ruleFilePath)
+  return (rows[0] ?? []).map((header) => header.trim())
+}
+
+export function ruleFileHasGradeColumn(ruleFilePath: string): boolean {
+  return readRuleHeaders(ruleFilePath).includes('年级')
+}
+
+function detectRuleFormat(headers: readonly string[]): 'official' | 'legacy' {
+  if (RULE_EXCEL_HEADERS.every((header) => headers.includes(header))) {
+    return 'official'
+  }
+  if (LEGACY_RULE_EXCEL_HEADERS.every((header) => headers.includes(header))) {
+    return 'legacy'
+  }
+  return 'official'
+}
+
 export function parseRuleExcel(ruleFilePath: string): {
   items: ScoreItemRule[]
   issues: RuleValidationIssue[]
@@ -65,7 +91,10 @@ export function parseRuleExcel(ruleFilePath: string): {
   }
 
   const headers = rows[0].map((h) => h.trim())
-  for (const required of RULE_EXCEL_HEADERS) {
+  const format = detectRuleFormat(headers)
+  const requiredHeaders = format === 'legacy' ? LEGACY_RULE_EXCEL_HEADERS : RULE_EXCEL_HEADERS
+
+  for (const required of requiredHeaders) {
     if (!headers.includes(required)) {
       issues.push({ rowIndex: 1, message: `缺少列：${required}` })
     }
@@ -76,6 +105,7 @@ export function parseRuleExcel(ruleFilePath: string): {
   }
 
   const colIndex = (name: string): number => headers.indexOf(name)
+  const hasGradeColumn = format === 'official'
 
   rows.slice(1).forEach((row, index) => {
     const rowIndex = index + 2
@@ -85,6 +115,7 @@ export function parseRuleExcel(ruleFilePath: string): {
 
     const projectName = row[colIndex('项目')] ?? ''
     const genderRaw = row[colIndex('性别')] ?? ''
+    const gradeRaw = hasGradeColumn ? row[colIndex('年级')] ?? '' : '初二'
     const performanceRaw = row[colIndex('成绩')] ?? ''
     const scoreRaw = row[colIndex('得分')] ?? ''
 
@@ -96,6 +127,12 @@ export function parseRuleExcel(ruleFilePath: string): {
 
     if (!isGender(genderRaw)) {
       issues.push({ rowIndex, message: `性别非法：${genderRaw}` })
+      return
+    }
+
+    const gradeLevel = parseGradeLevel(gradeRaw)
+    if (!gradeLevel) {
+      issues.push({ rowIndex, message: `年级非法：${gradeRaw}` })
       return
     }
 
@@ -114,6 +151,7 @@ export function parseRuleExcel(ruleFilePath: string): {
     items.push({
       itemCode,
       gender: genderRaw,
+      gradeLevel,
       entries: [{ performance, score }]
     })
   })
@@ -125,17 +163,18 @@ function mergeItemRules(partial: ScoreItemRule[]): ScoreItemRule[] {
   const map = new Map<string, ScoreRuleEntry[]>()
 
   for (const item of partial) {
-    const key = `${item.itemCode}::${item.gender}`
+    const key = `${item.itemCode}::${item.gender}::${item.gradeLevel}`
     const existing = map.get(key) ?? []
     existing.push(...item.entries)
     map.set(key, existing)
   }
 
   return Array.from(map.entries()).map(([key, entries]) => {
-    const [itemCode, gender] = key.split('::') as [ScoreItemCodeValue, Gender]
+    const [itemCode, gender, gradeLevel] = key.split('::') as [ScoreItemCodeValue, Gender, GradeLevel]
     return {
       itemCode,
       gender,
+      gradeLevel,
       entries: entries.sort((a, b) => a.performance - b.performance)
     }
   })
@@ -146,15 +185,22 @@ export function validateRuleStructure(
   items: readonly ScoreItemRule[]
 ): RuleValidationIssue[] {
   const issues: RuleValidationIssue[] = []
+  const gradeLevels = Array.from(new Set(items.map((item) => item.gradeLevel)))
+  const levelsToCheck = gradeLevels.length > 0 ? gradeLevels : [...GRADE_LEVELS]
 
-  for (const gender of [Gender.Male, Gender.Female]) {
-    for (const itemCode of ALL_SCORE_ITEM_CODES) {
-      const found = items.some((item) => item.itemCode === itemCode && item.gender === gender)
-      if (!found) {
-        issues.push({
-          rowIndex: 0,
-          message: `缺少项目规则：${itemCode}（${gender}）`
-        })
+  for (const gradeLevel of levelsToCheck) {
+    for (const gender of [Gender.Male, Gender.Female]) {
+      for (const itemCode of ALL_SCORE_ITEM_CODES) {
+        const found = items.some(
+          (item) =>
+            item.itemCode === itemCode && item.gender === gender && item.gradeLevel === gradeLevel
+        )
+        if (!found) {
+          issues.push({
+            rowIndex: 0,
+            message: `缺少项目规则：${itemCode}（${gender} ${gradeLevel}）`
+          })
+        }
       }
     }
   }
@@ -163,7 +209,7 @@ export function validateRuleStructure(
     if (item.entries.length === 0) {
       issues.push({
         rowIndex: 0,
-        message: `项目 ${item.itemCode}（${item.gender}）无评分条目`
+        message: `项目 ${item.itemCode}（${item.gender} ${item.gradeLevel}）无评分条目`
       })
     }
 
@@ -172,7 +218,7 @@ export function validateRuleStructure(
       if (performanceSet.has(entry.performance)) {
         issues.push({
           rowIndex: 0,
-          message: `重复成绩：${item.itemCode}（${item.gender}）${entry.performance}`
+          message: `重复成绩：${item.itemCode}（${item.gender} ${item.gradeLevel}）${entry.performance}`
         })
       }
       performanceSet.add(entry.performance)

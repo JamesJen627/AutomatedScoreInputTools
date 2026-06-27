@@ -1,7 +1,7 @@
 {
   "id": "cn.edu.2025",
-  "name": "2025 国家学生体质健康标准（示例）",
-  "version": "2025.1.0",
+  "name": "2025 国家学生体质健康标准",
+  "version": "2025.2.0",
   "author": "教育部",
   "supportGender": ["男", "女"],
   "supportedItems": ["sitReach", "run800", "run50", "standingJump", "sitUp"]

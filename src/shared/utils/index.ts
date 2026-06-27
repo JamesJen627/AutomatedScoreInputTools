@@ -1,4 +1,9 @@
-export { formatSecondsToTime, normalizeTimeQuotes, parseTimeToSeconds } from './time-parser'
+export {
+  formatSecondsToTime,
+  normalizeTimeQuotes,
+  parseRun50Seconds,
+  parseTimeToSeconds
+} from './time-parser'
 export {
   excelRowToGridRowIndex,
   formatCellAddress,

@@ -1,14 +1,22 @@
 import { ErrorCode } from '@shared/constants'
-import { REQUIRED_INPUT_HEADERS, STUDENT_FIELD_MAPPINGS } from '@shared/constants/field-mapping'
+import {
+  isKnownInputHeader,
+  REQUIRED_INPUT_HEADERS,
+  resolveCanonicalHeader
+} from '@shared/constants/field-mapping'
 import { ValidationLevel, type ValidationIssue } from '@shared/models'
 
 export function validateHeaders(headers: readonly string[]): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const trimmedHeaders = headers.map((header) => header.trim())
-  const headerSet = new Set(trimmedHeaders)
+  const canonicalHeaders = new Set(
+    trimmedHeaders
+      .filter((header) => header.length > 0)
+      .map((header) => resolveCanonicalHeader(header))
+  )
 
   for (const required of REQUIRED_INPUT_HEADERS) {
-    if (!headerSet.has(required)) {
+    if (!canonicalHeaders.has(required)) {
       issues.push({
         rowIndex: 1,
         columnName: required,
@@ -24,8 +32,7 @@ export function validateHeaders(headers: readonly string[]): ValidationIssue[] {
     if (header.length === 0) {
       continue
     }
-    const known = STUDENT_FIELD_MAPPINGS.some((field) => field.excelHeader === header)
-    if (!known) {
+    if (!isKnownInputHeader(header)) {
       issues.push({
         rowIndex: 1,
         columnName: header,

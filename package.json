@@ -12,7 +12,8 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "import-rules": "vitest run src/infrastructure/excel/official-scoring-table-parser.test.ts -t \"从官方表生成\""
   },
   "dependencies": {
     "ag-grid-community": "^36.0.0",

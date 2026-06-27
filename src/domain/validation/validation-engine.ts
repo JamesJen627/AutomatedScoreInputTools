@@ -1,7 +1,7 @@
 import { ErrorCode } from '@shared/constants'
 import { STUDENT_FIELD_MAPPINGS } from '@shared/constants/field-mapping'
 import { Gender, isGender, ValidationLevel, type Student, type ValidationIssue } from '@shared/models'
-import { parseTimeToSeconds } from '@shared/utils'
+import { parseRun50Seconds, parseTimeToSeconds } from '@shared/utils'
 
 const ILLEGAL_CHAR_PATTERN = /[@￥]/
 
@@ -174,14 +174,17 @@ export function parseStudentFromRawRow(row: RawRowValues): { student?: Student; 
     '仰卧起坐得分占比'
   ] as const
 
-  for (const header of [
-    ...REQUIRED_STRING_FIELDS.map((f) => getHeaderLabel(f.key)),
-    '性别',
+  const performanceHeaders = [
     '坐位体前屈成绩（单位：厘米）',
     '800m成绩（单位：分·秒）',
     '50m成绩（单位：秒）',
     '立定跳远成绩（单位：米）',
-    '仰卧起坐成绩（单位：次）',
+    '仰卧起坐成绩（单位：次）'
+  ] as const
+
+  for (const header of [
+    ...REQUIRED_STRING_FIELDS.map((f) => getHeaderLabel(f.key)),
+    '性别',
     ...weightHeaders
   ]) {
     const cell = get(header)
@@ -195,6 +198,23 @@ export function parseStudentFromRawRow(row: RawRowValues): { student?: Student; 
         suggestion: '请填写完整成绩与占比'
       })
     } else if (ILLEGAL_CHAR_PATTERN.test(cell)) {
+      issues.push({
+        rowIndex: row.rowIndex,
+        columnName: header,
+        level: ValidationLevel.Error,
+        errorCode: ErrorCode.INVALID_SCORE_FORMAT,
+        message: `${header}包含非法字符`,
+        suggestion: '请移除特殊字符后重新填写'
+      })
+    }
+  }
+
+  for (const header of performanceHeaders) {
+    const cell = get(header)
+    if (cell.length === 0) {
+      continue
+    }
+    if (ILLEGAL_CHAR_PATTERN.test(cell)) {
       issues.push({
         rowIndex: row.rowIndex,
         columnName: header,
@@ -221,8 +241,9 @@ export function parseStudentFromRawRow(row: RawRowValues): { student?: Student; 
   }
 
   let run50 = Number.NaN
-  if (run50Raw.length > 0 && /^\d+(\.\d+)?$/.test(run50Raw)) {
-    run50 = Number(run50Raw)
+  const run50Seconds = parseRun50Seconds(run50Raw)
+  if (run50Raw.length > 0 && run50Seconds !== null) {
+    run50 = run50Seconds
   } else if (run50Raw.length > 0) {
     issues.push({
       rowIndex: row.rowIndex,
@@ -230,7 +251,7 @@ export function parseStudentFromRawRow(row: RawRowValues): { student?: Student; 
       level: ValidationLevel.Error,
       errorCode: ErrorCode.INVALID_SCORE_FORMAT,
       message: '50米成绩格式错误',
-      suggestion: '请仅填写数字，如 7.56'
+      suggestion: '请填写数字（如 7.56）或计时格式（如 8"7 表示 8.7 秒）'
     })
   }
 

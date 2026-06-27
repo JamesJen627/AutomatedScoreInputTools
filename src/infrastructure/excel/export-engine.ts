@@ -1,7 +1,13 @@
 import { existsSync, writeFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import * as XLSX from 'xlsx'
-import { OUTPUT_SCORE_HEADERS, REQUIRED_INPUT_HEADERS } from '@shared/constants/field-mapping'
+import {
+  EXPORT_COLUMN_BINDINGS,
+  EXPORT_OUTPUT_HEADERS,
+  REQUIRED_INPUT_HEADERS
+} from '@shared/constants/field-mapping'
+import { formatItemScore } from '@shared/constants/score-items'
+import { classifyTotalScoreGrade } from '@domain/scoring/total-score-grade'
 import { roundTotalScore } from '@domain/scoring/lookup-strategy'
 import type { CalculationReport, StudentCalculationResult } from '@shared/models'
 
@@ -22,13 +28,52 @@ export interface ExportResult {
   readonly rowCount: number
 }
 
-const SCORE_HEADER_TO_FIELD: Record<(typeof OUTPUT_SCORE_HEADERS)[number], keyof StudentCalculationResult> = {
-  坐位体前屈得分: 'sitReachScore',
-  '800m得分': 'run800Score',
-  '50m得分': 'run50Score',
-  立定跳远得分: 'standingJumpScore',
-  仰卧起坐得分: 'sitUpScore',
-  总成绩: 'totalScore'
+type ScoreField =
+  | 'sitReachScore'
+  | 'run800Score'
+  | 'run50Score'
+  | 'standingJumpScore'
+  | 'sitUpScore'
+  | 'totalScore'
+
+function formatScoreValue(field: ScoreField, result: StudentCalculationResult): string {
+  const value = result[field]
+  if (field === 'totalScore') {
+    return roundTotalScore(value).toFixed(2)
+  }
+  return formatItemScore(value)
+}
+
+function buildInputValueMap(row: readonly string[]): Map<string, string> {
+  const values = new Map<string, string>()
+  REQUIRED_INPUT_HEADERS.forEach((header, index) => {
+    values.set(header, String(row[index] ?? '').trim())
+  })
+  return values
+}
+
+function buildExportDataRow(
+  inputValues: Map<string, string>,
+  result: StudentCalculationResult | undefined
+): string[] {
+  return EXPORT_COLUMN_BINDINGS.map((binding) => {
+    if (binding.kind === 'input') {
+      return inputValues.get(binding.inputHeader) ?? ''
+    }
+
+    if (binding.kind === 'grade') {
+      if (!result || !result.success) {
+        return ''
+      }
+      return classifyTotalScoreGrade(result.totalScore, result.maxPossibleTotalScore)
+    }
+
+    if (!result || !result.success) {
+      return ''
+    }
+
+    return formatScoreValue(binding.scoreField, result)
+  })
 }
 
 export function buildDefaultExportFileName(sourceFileName: string): string {
@@ -59,36 +104,18 @@ export function resolveAvailableExportPath(directory: string, fileName: string):
   throw new Error('无法生成唯一导出文件名')
 }
 
-function formatScoreValue(header: string, result: StudentCalculationResult): string {
-  const field = SCORE_HEADER_TO_FIELD[header as keyof typeof SCORE_HEADER_TO_FIELD]
-  if (!field) {
-    return ''
-  }
-  const value = result[field]
-  if (field === 'totalScore') {
-    return roundTotalScore(value as number).toFixed(2)
-  }
-  return String(value)
-}
-
 export function buildExportRows(input: ExportBuildInput): string[][] {
   const resultByRow = new Map<number, StudentCalculationResult>()
   for (const result of input.calculationReport.results) {
     resultByRow.set(result.rowIndex, result)
   }
 
-  const headerRow = [...REQUIRED_INPUT_HEADERS, ...OUTPUT_SCORE_HEADERS]
+  const headerRow = [...EXPORT_OUTPUT_HEADERS]
   const dataRows = input.gridRows.slice(1).map((row, index) => {
     const rowIndex = index + 2
     const result = resultByRow.get(rowIndex)
-    const originalCells = REQUIRED_INPUT_HEADERS.map((_, colIndex) => row[colIndex] ?? '')
-
-    if (!result || !result.success) {
-      return [...originalCells, ...OUTPUT_SCORE_HEADERS.map(() => '')]
-    }
-
-    const scoreCells = OUTPUT_SCORE_HEADERS.map((header) => formatScoreValue(header, result))
-    return [...originalCells, ...scoreCells]
+    const inputValues = buildInputValueMap(row)
+    return buildExportDataRow(inputValues, result)
   })
 
   return [headerRow, ...dataRows]

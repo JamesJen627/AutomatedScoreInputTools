@@ -48,4 +48,32 @@ export function resolveScoreItemCode(projectName: string): ScoreItemCodeValue | 
   return SCORE_ITEM_ALIASES[normalized]
 }
 
-export const RULE_EXCEL_HEADERS = ['项目', '性别', '成绩', '得分'] as const
+export const RULE_EXCEL_HEADERS = ['项目', '性别', '年级', '成绩', '得分'] as const
+
+/** 旧版四列格式（无年级列）兼容 */
+export const LEGACY_RULE_EXCEL_HEADERS = ['项目', '性别', '成绩', '得分'] as const
+
+/**
+ * 成绩单项评分表规定的单项得分档位（共 20 档）。
+ * 查表结果必须命中其中之一，不得插值或四舍五入为其他值。
+ */
+export const STANDARD_ITEM_SCORE_TIERS = [
+  100, 95, 90, 85, 80, 78, 76, 74, 72, 70, 68, 66, 64, 62, 60, 50, 40, 30, 20, 10
+] as const
+
+export type StandardItemScoreTier = (typeof STANDARD_ITEM_SCORE_TIERS)[number]
+
+const STANDARD_ITEM_SCORE_SET = new Set<number>(STANDARD_ITEM_SCORE_TIERS)
+
+/** 单项得分是否为评分表标准档位 */
+export function isStandardItemScore(score: number): boolean {
+  return STANDARD_ITEM_SCORE_SET.has(score)
+}
+
+/** 单项得分展示（标准档位为整数；缺考为 0） */
+export function formatItemScore(score: number): string {
+  if (score === 0) {
+    return '0'
+  }
+  return String(score)
+}
